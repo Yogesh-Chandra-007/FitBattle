@@ -83,7 +83,7 @@ class BattleService extends ChangeNotifier {
 
     // Wait for RTDB connectivity so the room snapshot/transaction sees
     // authoritative state on the FIRST attempt.
-    final connectedSnap = await _db.child('.info/connected').get();
+    final connectedSnap = await _db.child('.info').child('connected').get();
     if (connectedSnap.value != true) {
       await connectionChanges.firstWhere((c) => c).timeout(const Duration(seconds: 5));
     }
@@ -266,7 +266,7 @@ class BattleService extends ChangeNotifier {
   /// Records presence and queues the equivalent server-side disconnect write.
   Future<void> markPlayerConnected(String roomId) async {
     final user = _requireUser();
-    await _roomRef(roomId).child('presence/${user.uid}').update({
+    await _roomRef(roomId).child('presence').child(user.uid).update({
       'connected': true,
       'lastSeen': ServerValue.timestamp,
     });
@@ -274,7 +274,7 @@ class BattleService extends ChangeNotifier {
   }
 
   Future<void> _armPresence(String roomId, String uid) =>
-      _roomRef(roomId).child('presence/$uid').onDisconnect().update({
+      _roomRef(roomId).child('presence').child(uid).onDisconnect().update({
         'connected': false,
         'lastSeen': ServerValue.timestamp,
       });
