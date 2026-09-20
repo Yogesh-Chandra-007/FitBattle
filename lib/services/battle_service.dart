@@ -399,7 +399,7 @@ class BattleService extends ChangeNotifier {
     });
   }
 
-  DatabaseReference _roomRef(String roomId) => _db.child('rooms/$roomId');
+  DatabaseReference _roomRef(String roomId) => _db.child('rooms').child(roomId);
 
   User _requireUser() {
     final user = FirebaseAuth.instance.currentUser;
