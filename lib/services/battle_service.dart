@@ -30,7 +30,8 @@ class BattleService extends ChangeNotifier {
 
   /// Used to re-arm presence after a transient Firebase reconnect.
   Stream<bool> get connectionChanges => _db
-      .child('.info/connected')
+      .child('.info')
+      .child('connected')
       .onValue
       .map((event) => event.snapshot.value == true);
 
@@ -311,7 +312,7 @@ class BattleService extends ChangeNotifier {
       }
       return Transaction.success(room);
     });
-    await _roomRef(roomId).child('presence/${user.uid}').onDisconnect().cancel();
+    await _roomRef(roomId).child('presence').child(user.uid).onDisconnect().cancel();
     if (shouldPublish) await publishResult(roomId);
   }
 
