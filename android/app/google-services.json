@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "833714346893",
+    "firebase_url": "https://fitness-battle-27981-default-rtdb.firebaseio.com",
+    "project_id": "fitness-battle-27981",
+    "storage_bucket": "fitness-battle-27981.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:833714346893:android:5b54ab5d24f45e54b6fbc4",
+        "android_client_info": {
+          "package_name": "com.fitbattle.fitness_battle"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCiy7RN1lTdP4dS6bRCoLIsz1vmuf1kMLY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
