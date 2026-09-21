@@ -18,7 +18,8 @@ class BattleZoneScreen extends StatefulWidget {
 class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProviderStateMixin {
   Exercise _selectedExercise = availableExercises.first;
   int _durationMinutes = 1;
-  bool _loading = false;
+  bool _creating = false;
+  bool _joining = false;
   bool _matchmaking = false;
   final _roomCodeCtrl = TextEditingController();
   String? _error;
@@ -39,10 +40,12 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
   }
 
   int get _durationSeconds => _durationMinutes * 60;
+  bool get _isBusy => _creating || _joining || _matchmaking;
 
   Future<void> _createBattle() async {
+    if (_isBusy) return;
     HapticFeedback.mediumImpact();
-    _setLoading(true);
+    _setCreating(true);
     try {
       final battle = context.read<BattleService>();
       final roomId = await battle.createRoom(_selectedExercise.id, _durationSeconds);
@@ -55,11 +58,12 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
     } catch (e) {
       _setError('Failed to create room: $e');
     } finally {
-      _setLoading(false);
+      _setCreating(false);
     }
   }
 
   Future<void> _joinBattle() async {
+    if (_isBusy) return;
     final code = _roomCodeCtrl.text.trim().toUpperCase();
     if (code.isEmpty) {
       _setError('Enter a room code.');
@@ -70,7 +74,7 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
       return;
     }
     HapticFeedback.mediumImpact();
-    _setLoading(true);
+    _setJoining(true);
     _setError(null);
     try {
       final battle = context.read<BattleService>();
@@ -88,11 +92,12 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
     } catch (e) {
       _setError('Failed to join room: $e');
     } finally {
-      _setLoading(false);
+      _setJoining(false);
     }
   }
 
   Future<void> _startMatchmaking() async {
+    if (_isBusy) return;
     HapticFeedback.heavyImpact();
     setState(() { _matchmaking = true; _error = null; });
     final battle = context.read<BattleService>();
@@ -114,7 +119,8 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
     }
   }
 
-  void _setLoading(bool v) { if (mounted) setState(() => _loading = v); }
+  void _setCreating(bool v) { if (mounted) setState(() => _creating = v); }
+  void _setJoining(bool v) { if (mounted) setState(() => _joining = v); }
   void _setError(String? v) { if (mounted) setState(() => _error = v); }
 
   @override
@@ -334,8 +340,8 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
           width: double.infinity,
           height: 56,
           child: ElevatedButton.icon(
-            onPressed: _loading ? null : _createBattle,
-            icon: _loading
+            onPressed: _isBusy ? null : _createBattle,
+            icon: _creating
                 ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black.withValues(alpha: 0.8)))
                 : const Icon(Icons.add_circle_outline),
             label: Text('CREATE BATTLE', style: GoogleFonts.rajdhani(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1)),
@@ -353,7 +359,7 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
           width: double.infinity,
           height: 56,
           child: OutlinedButton.icon(
-            onPressed: _loading || _matchmaking ? null : _startMatchmaking,
+            onPressed: _isBusy ? null : _startMatchmaking,
             icon: const Icon(Icons.search),
             label: Text('FIND MATCH', style: GoogleFonts.rajdhani(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1)),
             style: OutlinedButton.styleFrom(
@@ -397,14 +403,16 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
             SizedBox(
               height: 54,
               child: ElevatedButton(
-                onPressed: _loading ? null : _joinBattle,
+                onPressed: _isBusy ? null : _joinBattle,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4CAF50),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                 ),
-                child: Text('JOIN', style: GoogleFonts.rajdhani(fontSize: 17, fontWeight: FontWeight.w800)),
+                child: _joining
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text('JOIN', style: GoogleFonts.rajdhani(fontSize: 17, fontWeight: FontWeight.w800)),
               ),
             ),
           ],

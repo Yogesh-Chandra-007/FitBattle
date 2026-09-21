@@ -29,9 +29,8 @@ class BattleService extends ChangeNotifier {
   }
 
   /// Used to re-arm presence after a transient Firebase reconnect.
-  Stream<bool> get connectionChanges => _db
-      .child('.info')
-      .child('connected')
+  Stream<bool> get connectionChanges => FirebaseDatabase.instance
+      .ref('.info/connected')
       .onValue
       .map((event) => event.snapshot.value == true);
 
@@ -74,44 +73,20 @@ class BattleService extends ChangeNotifier {
   }
 
   /// Atomically claims an open room and moves it from WAITING to MATCHED.
-  ///
-  /// A short “room exists” preflight + connected wait prevents transactions
-  /// from aborting due to initial network/sync lag (first-join glitch).
   Future<bool> joinRoom(String roomId) async {
     final user = _requireUser();
     final normalized = roomId.trim().toUpperCase();
     if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(normalized)) return false;
 
-    // Wait for RTDB connectivity so the room snapshot/transaction sees
-    // authoritative state on the FIRST attempt.
-    final connectedSnap = await _db.child('.info').child('connected').get();
-    if (connectedSnap.value != true) {
-      await connectionChanges.firstWhere((c) => c).timeout(const Duration(seconds: 5));
-    }
-
-    // Preflight: bounded re-read to avoid “first join” sync lag.
-    Map<dynamic, dynamic>? pre;
-    for (var attempt = 0; attempt < 2; attempt++) {
-      final preSnap = await _roomRef(normalized).get();
-      if (preSnap.value is Map) {
-        pre = preSnap.value as Map<dynamic, dynamic>;
-        break;
-      }
-      if (attempt == 0) {
-        await Future.delayed(const Duration(milliseconds: 400));
-        continue;
-      }
-      return false;
-    }
-
-    if (pre == null) return false;
-    final preRoom = pre;
-    if (preRoom['status'] != BattleStatus.waiting.name) return false;
-    if (preRoom['guestId'] != null) return false;
-    if (preRoom['hostId'] == user.uid) return false;
-
     var joined = false;
-    await _roomRef(normalized).runTransaction((current) {
+    final result = await _roomRef(normalized).runTransaction((current) {
+      // Firebase invokes the transaction handler locally first. If the node
+      // is not cached locally, `current` is null. Returning success(null)
+      // instructs the SDK to fetch the server data and retry the transaction
+      // with authoritative server state rather than aborting prematurely.
+      if (current == null) {
+        return Transaction.success(current);
+      }
       final room = _roomMap(current);
       if (room == null ||
           room['status'] != BattleStatus.waiting.name ||
@@ -127,14 +102,20 @@ class BattleService extends ChangeNotifier {
       return Transaction.success(room);
     });
 
-    if (joined) {
+    if (result.committed && joined) {
       await _armPresence(normalized, user.uid);
-      final snapshot = await _roomRef(normalized).get();
-      if (snapshot.value is Map) {
-        _currentRoom = BattleRoom.fromMap(normalized, snapshot.value as Map);
+      final snapValue = result.snapshot.value;
+      if (snapValue is Map) {
+        _currentRoom = BattleRoom.fromMap(normalized, snapValue);
+      } else {
+        final snapshot = await _roomRef(normalized).get();
+        if (snapshot.value is Map) {
+          _currentRoom = BattleRoom.fromMap(normalized, snapshot.value as Map);
+        }
       }
+      return true;
     }
-    return joined;
+    return false;
   }
 
   /// MATCHED -> COUNTDOWN. This is intentionally not host-only; the
