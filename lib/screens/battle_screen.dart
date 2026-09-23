@@ -507,7 +507,7 @@ class _BattleScreenState extends State<BattleScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(color: CyberpunkColors.secondary),
+                      const CircularProgressIndicator(color: CyberpunkColors.secondary),
                       const SizedBox(height: 16),
                       Text(
                         'Initializing camera...',

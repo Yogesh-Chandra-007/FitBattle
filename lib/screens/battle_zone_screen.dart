@@ -246,6 +246,8 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
                   _buildQuickBattleBlock(cs),
                   const SizedBox(height: 12),
                   _buildCreateRoomTile(cs),
+                  const SizedBox(height: 12),
+                  _buildTargetRepsSelector(cs),
 
                   const SizedBox(height: 16),
 
@@ -350,7 +352,7 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
         ),
         child: Row(
           children: [
-            Icon(Icons.bolt, color: Colors.black, size: 22),
+            const Icon(Icons.bolt, color: Colors.black, size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

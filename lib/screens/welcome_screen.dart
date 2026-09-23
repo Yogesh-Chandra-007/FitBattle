@@ -21,9 +21,9 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(
+          const Positioned.fill(
             child: DecoratedBox(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -86,10 +86,10 @@ class WelcomeScreen extends StatelessWidget {
                   const Spacer(),
 
                   // Hero illustration (abstract, no photography)
-                  SizedBox(
+                  const SizedBox(
                     height: 230,
                     width: double.infinity,
-                    child: const _AthleteIllustration(),
+                    child: _AthleteIllustration(),
                   ),
 
                   const SizedBox(height: 18),
@@ -273,8 +273,8 @@ class _AthleteIllustration extends StatelessWidget {
 class _NeonAthletesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final lime = CyberpunkColors.primary;
-    final magenta = CyberpunkColors.competitive;
+    const lime = CyberpunkColors.primary;
+    const magenta = CyberpunkColors.competitive;
 
     final stroke = Paint()
       ..style = PaintingStyle.stroke
@@ -362,15 +362,15 @@ class _CyberBackdrop extends StatelessWidget {
           ),
         ),
         // Corner glows
-        Positioned(
+        const Positioned(
           left: -60,
           top: 120,
-          child: _GlowBlob(color: const Color(0xFFB6FF2B), size: 180),
+          child: _GlowBlob(color: Color(0xFFB6FF2B), size: 180),
         ),
-        Positioned(
+        const Positioned(
           right: -80,
           top: 40,
-          child: _GlowBlob(color: const Color(0xFFFF2D55), size: 220),
+          child: _GlowBlob(color: Color(0xFFFF2D55), size: 220),
         ),
       ],
     );
@@ -404,7 +404,7 @@ class _GridPainter extends CustomPainter {
       ..strokeWidth = 1
       ..color = Colors.white.withValues(alpha: 0.05);
 
-    final step = 26.0;
+    const step = 26.0;
     for (double x = 0; x < size.width; x += step) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
