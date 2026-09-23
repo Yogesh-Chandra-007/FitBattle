@@ -13,6 +13,7 @@ import '../models/exercise.dart';
 import '../services/auth_service.dart';
 import '../services/battle_service.dart';
 import '../services/pose_detector_service.dart';
+import '../services/theme_service.dart';
 import 'result_screen.dart';
 
 class BattleScreen extends StatefulWidget {
@@ -361,7 +362,7 @@ class _BattleScreenState extends State<BattleScreen> {
         nav.pop();
       },
       child: Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: CyberpunkColors.background,
       body: Stack(
         children: [
           // Full-screen camera feed
@@ -408,7 +409,7 @@ class _BattleScreenState extends State<BattleScreen> {
                       Icon(
                         Icons.visibility,
                         size: 64,
-                        color: _poseVisible ? const Color(0xFF4CAF50) : Colors.white38,
+                        color: _poseVisible ? CyberpunkColors.primary : Colors.white38,
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -416,7 +417,7 @@ class _BattleScreenState extends State<BattleScreen> {
                         style: GoogleFonts.rajdhani(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: _poseVisible ? const Color(0xFF4CAF50) : Colors.white,
+                          color: _poseVisible ? CyberpunkColors.primary : Colors.white,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -464,7 +465,7 @@ class _BattleScreenState extends State<BattleScreen> {
                 style: GoogleFonts.rajdhani(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFFFFC107),
+                  color: CyberpunkColors.primary,
                   letterSpacing: 3,
                 ),
               ),
@@ -488,7 +489,7 @@ class _BattleScreenState extends State<BattleScreen> {
                         style: GoogleFonts.rajdhani(
                           fontSize: 140,
                           fontWeight: FontWeight.w900,
-                          color: const Color(0xFF00E5FF),
+                          color: CyberpunkColors.secondary,
                         ),
                       ),
                     ),
@@ -506,7 +507,7 @@ class _BattleScreenState extends State<BattleScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const CircularProgressIndicator(color: Color(0xFF00E5FF)),
+                      CircularProgressIndicator(color: CyberpunkColors.secondary),
                       const SizedBox(height: 16),
                       Text(
                         'Initializing camera...',
@@ -524,7 +525,7 @@ class _BattleScreenState extends State<BattleScreen> {
   }
 
   Widget _buildVisibilityIndicator() {
-    final color = _poseVisible ? const Color(0xFF4CAF50) : Colors.red;
+    final color = _poseVisible ? CyberpunkColors.primary : CyberpunkColors.competitive;
     final icon = _poseVisible ? Icons.visibility : Icons.visibility_off;
 
     return Container(
@@ -558,8 +559,8 @@ class _BattleScreenState extends State<BattleScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0D1B2A).withValues(alpha: 0.92),
-        border: const Border(bottom: BorderSide(color: Color(0xFF1E3A5F), width: 1)),
+        color: CyberpunkColors.surface.withValues(alpha: 0.92),
+        border: const Border(bottom: BorderSide(color: CyberpunkColors.border, width: 1)),
       ),
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 8,
@@ -575,7 +576,7 @@ class _BattleScreenState extends State<BattleScreen> {
             style: GoogleFonts.rajdhani(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFFFFC107),
+              color: CyberpunkColors.primary,
               letterSpacing: 3,
             ),
           ),
@@ -593,7 +594,7 @@ class _BattleScreenState extends State<BattleScreen> {
                     style: GoogleFonts.rajdhani(
                       fontSize: 28,
                       fontWeight: FontWeight.w800,
-                      color: _secondsLeft <= 10 ? Colors.red : Colors.white,
+                      color: _secondsLeft <= 10 ? CyberpunkColors.competitive : CyberpunkColors.textPrimary,
                     ),
                   ),
                 ],
@@ -610,7 +611,7 @@ class _BattleScreenState extends State<BattleScreen> {
                 width: 40,
                 child: Text(
                   '$_myReps',
-                  style: GoogleFonts.rajdhani(fontSize: 26, fontWeight: FontWeight.w900, color: const Color(0xFF4CAF50)),
+                  style: GoogleFonts.rajdhani(fontSize: 26, fontWeight: FontWeight.w900, color: CyberpunkColors.primary),
                   textAlign: TextAlign.left,
                 ),
               ),
@@ -622,10 +623,10 @@ class _BattleScreenState extends State<BattleScreen> {
                     height: 14,
                     child: Stack(
                       children: [
-                        Container(color: const Color(0xFFE53935)),
+                        Container(color: CyberpunkColors.competitive),
                         FractionallySizedBox(
                           widthFactor: myFraction,
-                          child: Container(color: const Color(0xFF43A047)),
+                          child: Container(color: CyberpunkColors.primary),
                         ),
                       ],
                     ),
@@ -637,7 +638,7 @@ class _BattleScreenState extends State<BattleScreen> {
                 width: 40,
                 child: Text(
                   '$_opponentReps',
-                  style: GoogleFonts.rajdhani(fontSize: 26, fontWeight: FontWeight.w900, color: const Color(0xFFE53935)),
+                  style: GoogleFonts.rajdhani(fontSize: 26, fontWeight: FontWeight.w900, color: CyberpunkColors.competitive),
                   textAlign: TextAlign.right,
                 ),
               ),
@@ -663,10 +664,10 @@ class _BattleScreenState extends State<BattleScreen> {
       height: 40,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: isMe ? const Color(0xFF4CAF50) : const Color(0xFFE53935), width: 2),
-        color: const Color(0xFF1E3A5F),
+        border: Border.all(color: isMe ? CyberpunkColors.primary : CyberpunkColors.competitive, width: 2),
+        color: CyberpunkColors.surface,
       ),
-      child: Icon(Icons.person, color: isMe ? const Color(0xFF4CAF50) : const Color(0xFFE53935), size: 22),
+      child: Icon(Icons.person, color: isMe ? CyberpunkColors.primary : CyberpunkColors.competitive, size: 22),
     );
   }
 
@@ -689,7 +690,7 @@ class _BattleScreenState extends State<BattleScreen> {
         style: GoogleFonts.rajdhani(
           fontSize: 120,
           fontWeight: FontWeight.w900,
-          color: const Color(0xFFFFC107),
+          color: CyberpunkColors.primary,
           shadows: [
             Shadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 12, offset: const Offset(2, 2)),
           ],
@@ -720,16 +721,16 @@ class PosePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF00E5FF)
+      ..color = CyberpunkColors.secondary
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
 
     final jointPaint = Paint()
-      ..color = const Color(0xFF00E5FF)
+      ..color = CyberpunkColors.secondary
       ..style = PaintingStyle.fill;
 
     final highlightPaint = Paint()
-      ..color = const Color(0xFFFFC107)
+      ..color = CyberpunkColors.primary
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke;
 
@@ -794,7 +795,7 @@ class PosePainter extends CustomPainter {
         canvas.drawCircle(
           offset,
           highlight ? 8 : 6,
-          highlight ? (Paint()..color = const Color(0xFFFFC107)) : jointPaint,
+          highlight ? (Paint()..color = CyberpunkColors.primary) : jointPaint,
         );
       }
     }
@@ -879,7 +880,7 @@ class PosePainter extends CustomPainter {
           style: GoogleFonts.rajdhani(
             fontSize: 24,
             fontWeight: FontWeight.w900,
-            color: const Color(0xFFFFC107),
+            color: CyberpunkColors.primary,
             shadows: [
               const Shadow(color: Colors.black, blurRadius: 8, offset: Offset(1, 1)),
             ],

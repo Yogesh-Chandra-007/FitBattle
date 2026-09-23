@@ -108,9 +108,44 @@ class _HomeScreenState extends State<HomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         titleSpacing: 16,
-        title: titles[_currentTab],
+        title: Row(
+          children: [
+            Text(
+              'FitBattle',
+              style: GoogleFonts.rajdhani(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: cs.primary,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(width: 10),
+            if (_currentTab == 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: cs.primary.withValues(alpha: 0.12),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
+                ),
+                child: Text(
+                  'SWEAT • COMPETE • GROW',
+                  style: GoogleFonts.rajdhani(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: cs.onSurface.withValues(alpha: 0.7),
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+          ],
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: Theme.of(context).dividerColor),
@@ -123,6 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+          color: isDark ? Colors.black.withValues(alpha: 0.25) : Colors.white,
         ),
         child: BottomNavigationBar(
           currentIndex: _currentTab,
@@ -130,14 +166,14 @@ class _HomeScreenState extends State<HomeScreen> {
             if (i != _currentTab) HapticFeedback.selectionClick();
             setState(() => _currentTab = i);
           },
-          backgroundColor: isDark ? const Color(0xFF0D0D0D) : Colors.white,
+          backgroundColor: Colors.transparent,
           selectedItemColor: cs.primary,
-          unselectedItemColor: cs.onSurface.withValues(alpha: 0.4),
-          selectedLabelStyle: GoogleFonts.rajdhani(fontSize: 12, fontWeight: FontWeight.w700),
-          unselectedLabelStyle: GoogleFonts.rajdhani(fontSize: 12),
+          unselectedItemColor: cs.onSurface.withValues(alpha: 0.45),
+          selectedLabelStyle: GoogleFonts.rajdhani(fontSize: 12, fontWeight: FontWeight.w800),
+          unselectedLabelStyle: GoogleFonts.rajdhani(fontSize: 12, fontWeight: FontWeight.w600),
           type: BottomNavigationBarType.fixed,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.sports_mma), label: 'Battle Zone'),
+            BottomNavigationBarItem(icon: Icon(Icons.flash_on), label: 'Battle'),
             BottomNavigationBarItem(icon: Icon(Icons.group), label: 'Friends'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],

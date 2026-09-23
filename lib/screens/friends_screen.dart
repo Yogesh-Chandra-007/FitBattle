@@ -6,6 +6,7 @@ import '../models/exercise.dart';
 import '../services/auth_service.dart';
 import '../services/battle_service.dart';
 import '../services/friends_service.dart';
+import '../services/theme_service.dart';
 
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
@@ -182,7 +183,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   children: [
                     TextButton(
                       onPressed: () => _acceptInvite(inv),
-                      child: Text('JOIN', style: GoogleFonts.rajdhani(color: const Color(0xFF00E5FF), fontWeight: FontWeight.w800)),
+                      child: Text('JOIN', style: GoogleFonts.rajdhani(color: CyberpunkColors.competitive, fontWeight: FontWeight.w800)),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.white38, size: 18),

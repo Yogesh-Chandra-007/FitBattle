@@ -7,7 +7,9 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  final bool isLogin;
+
+  const AuthScreen({super.key, this.isLogin = true});
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -25,6 +27,12 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _showPassword = false;
   bool _showConfirm = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLogin = widget.isLogin;
+  }
 
   @override
   void dispose() {

@@ -7,6 +7,9 @@ import 'package:provider/provider.dart';
 import '../models/exercise.dart';
 import '../services/auth_service.dart';
 import '../services/battle_service.dart';
+import '../utils/fitbattle_goal_mapper.dart';
+import '../widgets/cyberpunk_card.dart';
+import '../widgets/cyberpunk_stat_tile.dart';
 
 class BattleZoneScreen extends StatefulWidget {
   const BattleZoneScreen({super.key});
@@ -17,10 +20,14 @@ class BattleZoneScreen extends StatefulWidget {
 
 class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProviderStateMixin {
   Exercise _selectedExercise = availableExercises.first;
+
+  /// Duration drives the backend battle timer.
   int _durationMinutes = 1;
+
   bool _creating = false;
   bool _joining = false;
   bool _matchmaking = false;
+
   final _roomCodeCtrl = TextEditingController();
   String? _error;
 
@@ -40,11 +47,18 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
   }
 
   int get _durationSeconds => _durationMinutes * 60;
+  int get _targetReps => FitBattleGoalMapper.targetRepsFromDurationSeconds(_durationSeconds);
+
   bool get _isBusy => _creating || _joining || _matchmaking;
 
   Future<void> _createBattle() async {
     if (_isBusy) return;
+
     HapticFeedback.mediumImpact();
+    final minutes = await _promptDurationMinutes();
+    if (!mounted || minutes == null) return;
+    _durationMinutes = minutes;
+
     _setCreating(true);
     try {
       final battle = context.read<BattleService>();
@@ -73,13 +87,16 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
       _setError('Invalid room code format. Use 6 characters (A–Z, 0–9).');
       return;
     }
+
     HapticFeedback.mediumImpact();
     _setJoining(true);
     _setError(null);
+
     try {
       final battle = context.read<BattleService>();
       final joined = await battle.joinRoom(code);
       if (!mounted) return;
+
       if (joined) {
         Navigator.pushNamed(context, '/lobby', arguments: {
           'roomId': code,
@@ -99,14 +116,26 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
   Future<void> _startMatchmaking() async {
     if (_isBusy) return;
     HapticFeedback.heavyImpact();
-    setState(() { _matchmaking = true; _error = null; });
+
+    final minutes = await _promptDurationMinutes();
+    if (!mounted || minutes == null) return;
+    _durationMinutes = minutes;
+
+    setState(() {
+      _matchmaking = true;
+      _error = null;
+    });
+
     final battle = context.read<BattleService>();
     final myUid = context.read<AuthService>().currentUser?.uid ?? '';
+
     try {
       final roomId = await battle.findOrCreateMatchmakingRoom(_selectedExercise.id, _durationSeconds);
       if (!mounted) return;
+
       final room = battle.currentRoom;
       final isHost = room == null || room.hostId == myUid;
+
       Navigator.pushNamed(context, '/lobby', arguments: {
         'roomId': roomId,
         'exercise': _selectedExercise,
@@ -119,306 +148,676 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
     }
   }
 
-  void _setCreating(bool v) { if (mounted) setState(() => _creating = v); }
-  void _setJoining(bool v) { if (mounted) setState(() => _joining = v); }
-  void _setError(String? v) { if (mounted) setState(() => _error = v); }
+  void _setCreating(bool v) {
+    if (mounted) setState(() => _creating = v);
+  }
+
+  void _setJoining(bool v) {
+    if (mounted) setState(() => _joining = v);
+  }
+
+  Future<int?> _promptDurationMinutes() {
+    final cs = Theme.of(context).colorScheme;
+    return showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Choose battle duration'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final minutes in [1, 2, 3])
+              ListTile(
+                title: Text('$minutes minute${minutes == 1 ? '' : 's'}'),
+                subtitle: Text('${FitBattleGoalMapper.targetRepsFromDurationSeconds(minutes * 60)} target reps'),
+                selected: minutes == _durationMinutes,
+                selectedColor: cs.primary,
+                onTap: () => Navigator.pop(context, minutes),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _setError(String? v) {
+    if (mounted) setState(() => _error = v);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    final profile = auth.profile;
+    final cs = Theme.of(context).colorScheme;
+
+    final dayStreak = profile?.currentStreak ?? 0;
+    final battlesWon = profile?.totalWins ?? 0;
+    final totalReps = profile?.totalReps ?? 0;
+
     return Stack(
       children: [
         Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeader(context),
-                  const SizedBox(height: 28),
+                  _buildGreeting(profile, cs),
+                  const SizedBox(height: 16),
 
-                  _buildExerciseSelector(context)
-                      .animate()
-                      .fadeIn(delay: 100.ms, duration: 400.ms)
-                      .slideY(begin: 0.2),
+                  CyberpunkCard(
+                    glow: false,
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: CyberpunkStatTile(
+                            label: 'Day Streak',
+                            value: '$dayStreak',
+                            icon: Icons.local_fire_department,
+                            valueColor: cs.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: CyberpunkStatTile(
+                            label: 'Battles Won',
+                            value: '$battlesWon',
+                            icon: Icons.emoji_events,
+                            valueColor: Colors.amber,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: CyberpunkStatTile(
+                            label: 'Total Reps',
+                            value: '$totalReps',
+                            icon: Icons.fitness_center,
+                            valueColor: cs.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ).animate().fadeIn(duration: 300.ms, delay: 80.ms),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
 
-                  _buildTimerSelector(context)
-                      .animate()
-                      .fadeIn(delay: 200.ms, duration: 400.ms)
-                      .slideY(begin: 0.2),
+                  _buildQuickBattleBlock(cs),
+                  const SizedBox(height: 12),
+                  _buildCreateRoomTile(cs),
 
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 16),
 
-                  _buildActionButtons(context)
-                      .animate()
-                      .fadeIn(delay: 300.ms, duration: 400.ms)
-                      .slideY(begin: 0.2),
 
+                  _buildJoinRoomBlock(cs),
                   if (_error != null) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(_error!, style: GoogleFonts.rajdhani(color: Colors.redAccent, fontSize: 13))),
-                        ],
-                      ),
-                    ).animate().shake(duration: 400.ms).fadeIn(),
+                    const SizedBox(height: 12),
+                    _buildErrorCard(_error!, cs),
                   ],
 
+                  const SizedBox(height: 22),
+
+                  _buildPopularExercises(cs),
+                  const SizedBox(height: 20),
+
+                  _buildQuoteCard(cs),
                   const SizedBox(height: 28),
-
-                  _buildJoinSection(context)
-                      .animate()
-                      .fadeIn(delay: 400.ms, duration: 400.ms)
-                      .slideY(begin: 0.2),
-
-                  const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
         ),
 
-        // Matchmaking overlay
         if (_matchmaking) _MatchmakingOverlay(exercise: _selectedExercise, pulseCtrl: _pulseCtrl),
       ],
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'BATTLE ZONE',
-          style: GoogleFonts.rajdhani(
-            fontSize: 32,
-            fontWeight: FontWeight.w900,
-            color: cs.primary,
-            letterSpacing: 2,
-          ),
-        ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.2),
-        Text(
-          'Choose your exercise and start a battle',
-          style: GoogleFonts.rajdhani(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.4)),
-        ).animate().fadeIn(delay: 100.ms),
-      ],
-    );
-  }
+  Widget _buildGreeting(UserProfile? profile, ColorScheme cs) {
+    final name = profile?.username.isNotEmpty == true ? profile!.username : 'Fighter';
+    final rank = profile?.rank ?? 'Rookie';
+    final rankBadge = rank.length >= 2 ? rank.substring(0, 2).toUpperCase() : rank.toUpperCase();
 
-  Widget _buildExerciseSelector(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('SELECT EXERCISE', style: GoogleFonts.rajdhani(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.4), letterSpacing: 2)),
-        const SizedBox(height: 12),
-        Row(
-          children: availableExercises.map((ex) {
-            final selected = ex.id == _selectedExercise.id;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _selectedExercise = ex);
-                },
-                child: AnimatedContainer(
-                  duration: 200.ms,
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: selected ? cs.primary.withValues(alpha: 0.15) : Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: selected ? cs.primary : Colors.white12,
-                      width: selected ? 2 : 1,
-                    ),
-                    boxShadow: selected
-                        ? [BoxShadow(color: cs.primary.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 1)]
-                        : null,
-                  ),
-                  child: Column(
-                    children: [
-                      Text(ex.emoji, style: const TextStyle(fontSize: 28)),
-                      const SizedBox(height: 6),
-                      Text(
-                        ex.name,
-                        style: GoogleFonts.rajdhani(
-                          fontSize: 12,
-                          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                          color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.5),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hey $name.',
+                style: GoogleFonts.rajdhani(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  color: cs.primary,
+                  letterSpacing: 0.2,
                 ),
               ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimerSelector(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('BATTLE DURATION', style: GoogleFonts.rajdhani(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.4), letterSpacing: 2)),
-        const SizedBox(height: 12),
-        Row(
-          children: [1, 2, 3].map((min) {
-            final selected = _durationMinutes == min;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _durationMinutes = min);
-                },
-                child: AnimatedContainer(
-                  duration: 200.ms,
-                  margin: EdgeInsets.only(right: min < 3 ? 8 : 0),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: selected ? cs.secondary.withValues(alpha: 0.15) : Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: selected ? cs.secondary : Colors.white12,
-                      width: selected ? 2 : 1,
-                    ),
-                    boxShadow: selected
-                        ? [BoxShadow(color: cs.secondary.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 1)]
-                        : null,
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        '$min',
-                        style: GoogleFonts.rajdhani(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: selected ? cs.secondary : cs.onSurface.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      Text(
-                        'MIN',
-                        style: GoogleFonts.rajdhani(
-                          fontSize: 11,
-                          color: selected ? cs.secondary : cs.onSurface.withValues(alpha: 0.2),
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ],
-                  ),
+              const SizedBox(height: 6),
+              Text(
+                'Ready to battle today?',
+                style: GoogleFonts.rajdhani(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface.withValues(alpha: 0.55),
                 ),
               ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton.icon(
-            onPressed: _isBusy ? null : _createBattle,
-            icon: _creating
-                ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black.withValues(alpha: 0.8)))
-                : const Icon(Icons.add_circle_outline),
-            label: Text('CREATE BATTLE', style: GoogleFonts.rajdhani(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: cs.primary,
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 6,
-              shadowColor: cs.primary.withValues(alpha: 0.4),
-            ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: OutlinedButton.icon(
-            onPressed: _isBusy ? null : _startMatchmaking,
-            icon: const Icon(Icons.search),
-            label: Text('FIND MATCH', style: GoogleFonts.rajdhani(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1)),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: cs.secondary,
-              side: BorderSide(color: cs.secondary, width: 2),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildJoinSection(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('JOIN WITH CODE', style: GoogleFonts.rajdhani(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.4), letterSpacing: 2)),
-        const SizedBox(height: 10),
-        Row(
+        Column(
           children: [
-            Expanded(
-              child: TextField(
-                controller: _roomCodeCtrl,
-                style: GoogleFonts.rajdhani(fontSize: 18, fontWeight: FontWeight.w800, color: cs.onSurface, letterSpacing: 4),
-                textCapitalization: TextCapitalization.characters,
-                maxLength: 6,
-                decoration: InputDecoration(
-                  hintText: 'XXXXXX',
-                  hintStyle: GoogleFonts.rajdhani(fontSize: 18, color: cs.onSurface.withValues(alpha: 0.2), letterSpacing: 4),
-                  counterText: '',
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: cs.primary, width: 2),
-                  ),
-                ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: cs.secondary.withValues(alpha: 0.55)),
+                color: cs.secondary.withValues(alpha: 0.12),
               ),
-            ),
-            const SizedBox(width: 10),
-            SizedBox(
-              height: 54,
-              child: ElevatedButton(
-                onPressed: _isBusy ? null : _joinBattle,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4CAF50),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                rankBadge,
+                style: GoogleFonts.rajdhani(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: cs.secondary,
+                  letterSpacing: 1.2,
                 ),
-                child: _joining
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text('JOIN', style: GoogleFonts.rajdhani(fontSize: 17, fontWeight: FontWeight.w800)),
               ),
             ),
           ],
         ),
       ],
     );
+  }
+
+  Widget _buildQuickBattleBlock(ColorScheme cs) {
+    final isBusy = _isBusy && _matchmaking;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 76,
+      child: ElevatedButton(
+        onPressed: _isBusy ? null : _startMatchmaking,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: cs.primary,
+          foregroundColor: Colors.black,
+          elevation: 10,
+          shadowColor: cs.primary.withValues(alpha: 0.35),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.bolt, color: Colors.black, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Quick Battle',
+                    style: GoogleFonts.rajdhani(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.2,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Find a random opponent',
+                    style: GoogleFonts.rajdhani(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            if (isBusy)
+              const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+            else
+              const Icon(Icons.chevron_right, color: Colors.black, size: 28),
+          ],
+        ),
+      ).animate().fadeIn(duration: 350.ms, delay: 80.ms).slideY(begin: 0.12),
+    );
+  }
+
+  Widget _buildCreateRoomTile(ColorScheme cs) {
+    final disabled = _isBusy;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: disabled ? null : _createBattle,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: cs.onSurface.withValues(alpha: 0.06),
+          border: Border.all(color: cs.primary.withValues(alpha: 0.25), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: cs.primary.withValues(alpha: 0.12),
+              blurRadius: 14,
+              spreadRadius: 1,
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.group, color: cs.primary, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Create Room',
+                    style: GoogleFonts.rajdhani(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: cs.primary,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Play with friends',
+                    style: GoogleFonts.rajdhani(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_creating)
+              const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            else
+              const Icon(Icons.chevron_right, color: Colors.white38, size: 24),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(duration: 350.ms, delay: 140.ms).slideY(begin: 0.12);
+  }
+
+  Widget _buildTargetRepsSelector(ColorScheme cs) {
+    final selectedMinute = _durationMinutes;
+    final competitive = Theme.of(context).colorScheme.error;
+
+    final difficulty = FitBattleGoalMapper.difficultyFromDurationSeconds(_durationSeconds);
+    final estTime = FitBattleGoalMapper.estimatedTimeFromDurationSeconds(_durationSeconds);
+    final focus = FitBattleGoalMapper.bodyFocusFromExercise(_selectedExercise.id);
+
+    Widget pill(int minutes, String label, {required bool isSelected}) {
+      return GestureDetector(
+        onTap: _isBusy
+            ? null
+            : () {
+                setState(() => _durationMinutes = minutes);
+              },
+        child: AnimatedContainer(
+          duration: 180.ms,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected ? competitive.withValues(alpha: 0.95) : cs.onSurface.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? competitive : cs.primary.withValues(alpha: 0.18),
+              width: isSelected ? 0 : 1,
+            ),
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.rajdhani(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: isSelected ? Colors.black : cs.onSurface.withValues(alpha: 0.7),
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return CyberpunkCard(
+      padding: const EdgeInsets.all(16),
+      glow: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'TARGETS',
+            style: GoogleFonts.rajdhani(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+              color: cs.onSurface.withValues(alpha: 0.45),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$_targetReps REPS',
+                style: GoogleFonts.rajdhani(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                  color: cs.primary,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.35), width: 1),
+                  color: cs.primary.withValues(alpha: 0.10),
+                ),
+                child: Text(
+                  difficulty.toUpperCase(),
+                  style: GoogleFonts.rajdhani(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                    color: cs.onSurface.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$estTime • $focus',
+            style: GoogleFonts.rajdhani(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                pill(1, '50', isSelected: selectedMinute == 1),
+                const SizedBox(width: 10),
+                pill(2, '100', isSelected: selectedMinute == 2),
+                const SizedBox(width: 10),
+                pill(3, '200', isSelected: selectedMinute == 3),
+                const SizedBox(width: 10),
+                Opacity(
+                  opacity: 0.55,
+                  child: GestureDetector(
+                    onTap: null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: cs.onSurface.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: cs.primary.withValues(alpha: 0.16), width: 1),
+                      ),
+                      child: Text(
+                        'Custom',
+                        style: GoogleFonts.rajdhani(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: cs.onSurface.withValues(alpha: 0.55),
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJoinRoomBlock(ColorScheme cs) {
+    return CyberpunkCard(
+      padding: const EdgeInsets.all(16),
+      glow: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.login, color: cs.secondary, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                'Join Room',
+                style: GoogleFonts.rajdhani(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Enter a room code to join a battle',
+            style: GoogleFonts.rajdhani(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _roomCodeCtrl,
+                  maxLength: 6,
+                  textCapitalization: TextCapitalization.characters,
+                  style: GoogleFonts.rajdhani(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: cs.onSurface,
+                    letterSpacing: 4,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'XXXXXX',
+                    counterText: '',
+                    hintStyle: GoogleFonts.rajdhani(
+                      fontSize: 18,
+                      color: cs.onSurface.withValues(alpha: 0.2),
+                      letterSpacing: 4,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    filled: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: _isBusy ? null : _joinBattle,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: cs.secondary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    elevation: 8,
+                    shadowColor: cs.secondary.withValues(alpha: 0.25),
+                  ),
+                  child: _joining
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(
+                          'Join',
+                          style: GoogleFonts.rajdhani(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorCard(String error, ColorScheme cs) {
+    return CyberpunkCard(
+      padding: const EdgeInsets.all(14),
+      glow: false,
+      borderRadius: const BorderRadius.all(Radius.circular(14)),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              error,
+              style: GoogleFonts.rajdhani(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.redAccent,
+              ),
+            ),
+          ),
+          Icon(Icons.shield_outlined, color: cs.onSurface.withValues(alpha: 0.35), size: 18),
+        ],
+      ),
+    ).animate().shake(duration: 400.ms);
+  }
+
+  Widget _buildPopularExercises(ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Popular Exercises',
+              style: GoogleFonts.rajdhani(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                color: cs.onSurface.withValues(alpha: 0.45),
+                letterSpacing: 2,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'View All',
+              style: GoogleFonts.rajdhani(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface.withValues(alpha: 0.3),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: availableExercises.map((ex) {
+            final selected = ex.id == _selectedExercise.id;
+
+            return Expanded(
+              child: GestureDetector(
+                onTap: _isBusy
+                    ? null
+                    : () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedExercise = ex);
+                      },
+                child: AnimatedContainer(
+                  duration: 180.ms,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+                  margin: const EdgeInsets.only(right: 10),
+                  decoration: BoxDecoration(
+                    color: selected ? cs.primary.withValues(alpha: 0.12) : cs.onSurface.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.12),
+                      width: selected ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(ex.emoji, style: const TextStyle(fontSize: 34)),
+                      const SizedBox(height: 8),
+                      Text(
+                        ex.name,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.rajdhani(
+                          fontSize: 12,
+                          fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                          color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.55),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuoteCard(ColorScheme cs) {
+    return CyberpunkCard(
+      padding: const EdgeInsets.all(18),
+      glow: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '"Discipline today,\nDominance tomorrow."',
+            style: GoogleFonts.rajdhani(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              fontStyle: FontStyle.italic,
+              color: cs.onSurface.withValues(alpha: 0.6),
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 2,
+            width: 70,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              color: cs.primary,
+              boxShadow: [
+                BoxShadow(
+                  color: cs.primary.withValues(alpha: 0.25),
+                  blurRadius: 14,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 80.ms);
   }
 }
 
@@ -438,7 +837,6 @@ class _MatchmakingOverlay extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Pulsing radar rings
             SizedBox(
               width: 160,
               height: 160,
@@ -482,7 +880,10 @@ class _MatchmakingOverlay extends StatelessWidget {
                       border: Border.all(color: cs.primary, width: 2),
                     ),
                     child: Center(
-                      child: Text(exercise.emoji, style: const TextStyle(fontSize: 32)),
+                      child: Text(
+                        exercise.emoji,
+                        style: GoogleFonts.rajdhani(fontSize: 32, fontWeight: FontWeight.w900, color: cs.primary),
+                      ),
                     ),
                   ),
                 ],
@@ -505,7 +906,7 @@ class _MatchmakingOverlay extends StatelessWidget {
 
             Text(
               exercise.name,
-              style: GoogleFonts.rajdhani(fontSize: 15, color: Colors.white54),
+              style: GoogleFonts.rajdhani(fontSize: 15, color: Colors.white54, fontWeight: FontWeight.w700),
             ),
 
             const SizedBox(height: 48),
