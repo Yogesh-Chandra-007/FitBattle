@@ -21,8 +21,8 @@ class BattleZoneScreen extends StatefulWidget {
 class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProviderStateMixin {
   Exercise _selectedExercise = availableExercises.first;
 
-  /// Duration drives the backend battle timer.
-  int _durationMinutes = 1;
+  /// Duration in seconds: 30, 60, or 90
+  int _durationSeconds = FitBattleGoalMapper.defaultDuration;
 
   bool _creating = false;
   bool _joining = false;
@@ -46,18 +46,15 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
     super.dispose();
   }
 
-  int get _durationSeconds => _durationMinutes * 60;
-  int get _targetReps => FitBattleGoalMapper.targetRepsFromDurationSeconds(_durationSeconds);
-
   bool get _isBusy => _creating || _joining || _matchmaking;
 
   Future<void> _createBattle() async {
     if (_isBusy) return;
 
     HapticFeedback.mediumImpact();
-    final minutes = await _promptDurationMinutes();
-    if (!mounted || minutes == null) return;
-    _durationMinutes = minutes;
+    final duration = await _promptDuration();
+    if (!mounted || duration == null) return;
+    _durationSeconds = duration;
 
     _setCreating(true);
     try {
@@ -117,9 +114,9 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
     if (_isBusy) return;
     HapticFeedback.heavyImpact();
 
-    final minutes = await _promptDurationMinutes();
-    if (!mounted || minutes == null) return;
-    _durationMinutes = minutes;
+    final duration = await _promptDuration();
+    if (!mounted || duration == null) return;
+    _durationSeconds = duration;
 
     setState(() {
       _matchmaking = true;
@@ -156,7 +153,7 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
     if (mounted) setState(() => _joining = v);
   }
 
-  Future<int?> _promptDurationMinutes() {
+  Future<int?> _promptDuration() {
     final cs = Theme.of(context).colorScheme;
     return showDialog<int>(
       context: context,
@@ -165,13 +162,13 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final minutes in [1, 2, 3])
+            for (final duration in FitBattleGoalMapper.availableDurations)
               ListTile(
-                title: Text('$minutes minute${minutes == 1 ? '' : 's'}'),
-                subtitle: Text('${FitBattleGoalMapper.targetRepsFromDurationSeconds(minutes * 60)} target reps'),
-                selected: minutes == _durationMinutes,
+                title: Text(FitBattleGoalMapper.durationLabel(duration)),
+                subtitle: Text(FitBattleGoalMapper.difficultyFromDurationSeconds(duration)),
+                selected: duration == _durationSeconds,
                 selectedColor: cs.primary,
-                onTap: () => Navigator.pop(context, minutes),
+                onTap: () => Navigator.pop(context, duration),
               ),
           ],
         ),
@@ -247,7 +244,7 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
                   const SizedBox(height: 12),
                   _buildCreateRoomTile(cs),
                   const SizedBox(height: 12),
-                  _buildTargetRepsSelector(cs),
+                  _buildTimerDurationSelector(cs),
 
                   const SizedBox(height: 16),
 
@@ -452,20 +449,19 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
     ).animate().fadeIn(duration: 350.ms, delay: 140.ms).slideY(begin: 0.12);
   }
 
-  Widget _buildTargetRepsSelector(ColorScheme cs) {
-    final selectedMinute = _durationMinutes;
+  Widget _buildTimerDurationSelector(ColorScheme cs) {
+    final selectedDuration = _durationSeconds;
     final competitive = Theme.of(context).colorScheme.error;
 
     final difficulty = FitBattleGoalMapper.difficultyFromDurationSeconds(_durationSeconds);
-    final estTime = FitBattleGoalMapper.estimatedTimeFromDurationSeconds(_durationSeconds);
     final focus = FitBattleGoalMapper.bodyFocusFromExercise(_selectedExercise.id);
 
-    Widget pill(int minutes, String label, {required bool isSelected}) {
+    Widget pill(int durationSeconds, String label, {required bool isSelected}) {
       return GestureDetector(
         onTap: _isBusy
             ? null
             : () {
-                setState(() => _durationMinutes = minutes);
+                setState(() => _durationSeconds = durationSeconds);
               },
         child: AnimatedContainer(
           duration: 180.ms,
@@ -498,7 +494,7 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'TARGETS',
+            'TIMER DURATION',
             style: GoogleFonts.rajdhani(
               fontSize: 12,
               fontWeight: FontWeight.w900,
@@ -508,10 +504,12 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
           ),
           const SizedBox(height: 10),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Icon(Icons.timer, color: cs.primary, size: 28),
+              const SizedBox(width: 10),
               Text(
-                '$_targetReps REPS',
+                FitBattleGoalMapper.durationLabel(_durationSeconds),
                 style: GoogleFonts.rajdhani(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
@@ -541,7 +539,7 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
           ),
           const SizedBox(height: 6),
           Text(
-            '$estTime • $focus',
+            focus,
             style: GoogleFonts.rajdhani(
               fontSize: 13,
               fontWeight: FontWeight.w800,
@@ -553,35 +551,14 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                pill(1, '50', isSelected: selectedMinute == 1),
-                const SizedBox(width: 10),
-                pill(2, '100', isSelected: selectedMinute == 2),
-                const SizedBox(width: 10),
-                pill(3, '200', isSelected: selectedMinute == 3),
-                const SizedBox(width: 10),
-                Opacity(
-                  opacity: 0.55,
-                  child: GestureDetector(
-                    onTap: null,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: cs.onSurface.withValues(alpha: 0.03),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: cs.primary.withValues(alpha: 0.16), width: 1),
-                      ),
-                      child: Text(
-                        'Custom',
-                        style: GoogleFonts.rajdhani(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          color: cs.onSurface.withValues(alpha: 0.55),
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
+                for (int i = 0; i < FitBattleGoalMapper.availableDurations.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  pill(
+                    FitBattleGoalMapper.availableDurations[i],
+                    FitBattleGoalMapper.durationLabel(FitBattleGoalMapper.availableDurations[i]),
+                    isSelected: selectedDuration == FitBattleGoalMapper.availableDurations[i],
                   ),
-                ),
+                ],
               ],
             ),
           ),

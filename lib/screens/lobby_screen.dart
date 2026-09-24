@@ -166,9 +166,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
           final cs = Theme.of(context).colorScheme;
           final exercise = _exerciseFromRoom(room);
 
-          final targetReps = FitBattleGoalMapper.targetRepsFromDurationSeconds(room.durationSeconds);
+          final durationLabel = FitBattleGoalMapper.durationLabel(room.durationSeconds);
           final difficulty = FitBattleGoalMapper.difficultyFromDurationSeconds(room.durationSeconds);
-          final estTime = FitBattleGoalMapper.estimatedTimeFromDurationSeconds(room.durationSeconds);
           final focus = FitBattleGoalMapper.bodyFocusFromExercise(exercise.id);
 
           final youUsername = widget.isHost
@@ -219,8 +218,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
+                            Icon(Icons.timer, color: cs.primary, size: 28),
+                            const SizedBox(width: 10),
                             Text(
-                              '$targetReps REPS',
+                              durationLabel,
                               style: GoogleFonts.rajdhani(
                                 fontSize: 26,
                                 fontWeight: FontWeight.w900,
@@ -251,10 +252,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            Icon(Icons.timer_outlined, color: cs.secondary.withValues(alpha: 0.95), size: 18),
+                            Icon(Icons.fitness_center, color: cs.secondary.withValues(alpha: 0.95), size: 18),
                             const SizedBox(width: 8),
                             Text(
-                              estTime,
+                              focus,
                               style: GoogleFonts.rajdhani(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
