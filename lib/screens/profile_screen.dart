@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
-import '../services/theme_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -66,8 +64,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 24),
                   _buildLeaderboard(uid),
                   const SizedBox(height: 24),
-                  _buildSettings(context, p, auth),
-                  const SizedBox(height: 32),
+                  _buildSettingsButton(context),
+                  const SizedBox(height: 12),
                   _buildSignOutButton(context, auth),
                   const SizedBox(height: 24),
                 ],
@@ -287,38 +285,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSettings(BuildContext context, UserProfile p, AuthService auth) {
-    final themeNotifier = context.watch<ThemeNotifier>();
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('SETTINGS', style: GoogleFonts.rajdhani(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.4), letterSpacing: 2)),
-        const SizedBox(height: 10),
-        Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: SwitchListTile(
-            value: themeNotifier.isDark,
-            onChanged: (v) {
-              HapticFeedback.lightImpact();
-              themeNotifier.setDark(v);
-              auth.updateTheme(v);
-            },
-            title: Text('Dark Theme', style: GoogleFonts.rajdhani(fontSize: 16, color: cs.onSurface)),
-            secondary: Icon(
-              themeNotifier.isDark ? Icons.dark_mode : Icons.light_mode,
-              color: cs.primary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildSignOutButton(BuildContext context, AuthService auth) {
     return SizedBox(
       width: double.infinity,
@@ -329,6 +295,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         label: Text('Sign Out', style: GoogleFonts.rajdhani(fontSize: 16, color: Colors.redAccent, fontWeight: FontWeight.w700)),
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: Colors.redAccent),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsButton(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: ElevatedButton.icon(
+        onPressed: () => Navigator.pushNamed(context, '/settings'),
+        icon: const Icon(Icons.settings, color: Colors.black),
+        label: Text(
+          'Settings',
+          style: GoogleFonts.rajdhani(
+            fontSize: 16,
+            color: Colors.black,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: cs.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),

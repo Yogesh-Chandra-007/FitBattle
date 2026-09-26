@@ -27,15 +27,13 @@ class FitnessBattleApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => BattleService()),
       ],
-      child: Consumer<ThemeNotifier>(
-        builder: (_, themeNotifier, __) => MaterialApp(
-          title: 'Fitness Battle',
-          debugShowCheckedModeBanner: false,
-          themeMode: themeNotifier.mode,
-          theme: buildLightTheme(),
-          darkTheme: buildDarkTheme(),
-          home: const SplashScreen(),
-        ),
+      child: MaterialApp(
+        title: 'Fitness Battle',
+        debugShowCheckedModeBanner: false,
+        themeMode: ThemeMode.dark,
+        theme: buildLightTheme(),
+        darkTheme: buildDarkTheme(),
+        home: const SplashScreen(),
       ),
     );
   }

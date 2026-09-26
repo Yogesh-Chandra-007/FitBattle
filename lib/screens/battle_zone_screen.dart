@@ -112,6 +112,15 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
 
   Future<void> _startMatchmaking() async {
     if (_isBusy) return;
+
+    final auth = context.read<AuthService>();
+    final user = auth.currentUser;
+
+    if (user == null) {
+      _setError('You must be signed in to start matchmaking.');
+      return;
+    }
+
     HapticFeedback.heavyImpact();
 
     final duration = await _promptDuration();
@@ -124,14 +133,13 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
     });
 
     final battle = context.read<BattleService>();
-    final myUid = context.read<AuthService>().currentUser?.uid ?? '';
 
     try {
       final roomId = await battle.findOrCreateMatchmakingRoom(_selectedExercise.id, _durationSeconds);
       if (!mounted) return;
 
       final room = battle.currentRoom;
-      final isHost = room == null || room.hostId == myUid;
+      final isHost = room == null || room.hostId == user.uid;
 
       Navigator.pushNamed(context, '/lobby', arguments: {
         'roomId': roomId,
@@ -243,8 +251,6 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
                   _buildQuickBattleBlock(cs),
                   const SizedBox(height: 12),
                   _buildCreateRoomTile(cs),
-                  const SizedBox(height: 12),
-                  _buildTimerDurationSelector(cs),
 
                   const SizedBox(height: 16),
 
@@ -336,7 +342,6 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
 
     return SizedBox(
       width: double.infinity,
-      height: 76,
       child: ElevatedButton(
         onPressed: _isBusy ? null : _startMatchmaking,
         style: ElevatedButton.styleFrom(
@@ -345,7 +350,7 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
           elevation: 10,
           shadowColor: cs.primary.withValues(alpha: 0.35),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
         child: Row(
           children: [
@@ -355,6 +360,7 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Quick Battle',
@@ -449,123 +455,6 @@ class _BattleZoneScreenState extends State<BattleZoneScreen> with TickerProvider
     ).animate().fadeIn(duration: 350.ms, delay: 140.ms).slideY(begin: 0.12);
   }
 
-  Widget _buildTimerDurationSelector(ColorScheme cs) {
-    final selectedDuration = _durationSeconds;
-    final competitive = Theme.of(context).colorScheme.error;
-
-    final difficulty = FitBattleGoalMapper.difficultyFromDurationSeconds(_durationSeconds);
-    final focus = FitBattleGoalMapper.bodyFocusFromExercise(_selectedExercise.id);
-
-    Widget pill(int durationSeconds, String label, {required bool isSelected}) {
-      return GestureDetector(
-        onTap: _isBusy
-            ? null
-            : () {
-                setState(() => _durationSeconds = durationSeconds);
-              },
-        child: AnimatedContainer(
-          duration: 180.ms,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          decoration: BoxDecoration(
-            color: isSelected ? competitive.withValues(alpha: 0.95) : cs.onSurface.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isSelected ? competitive : cs.primary.withValues(alpha: 0.18),
-              width: isSelected ? 0 : 1,
-            ),
-          ),
-          child: Text(
-            label,
-            style: GoogleFonts.rajdhani(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: isSelected ? Colors.black : cs.onSurface.withValues(alpha: 0.7),
-              letterSpacing: 0.8,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return CyberpunkCard(
-      padding: const EdgeInsets.all(16),
-      glow: false,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'TIMER DURATION',
-            style: GoogleFonts.rajdhani(
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-              color: cs.onSurface.withValues(alpha: 0.45),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(Icons.timer, color: cs.primary, size: 28),
-              const SizedBox(width: 10),
-              Text(
-                FitBattleGoalMapper.durationLabel(_durationSeconds),
-                style: GoogleFonts.rajdhani(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                  color: cs.primary,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: cs.primary.withValues(alpha: 0.35), width: 1),
-                  color: cs.primary.withValues(alpha: 0.10),
-                ),
-                child: Text(
-                  difficulty.toUpperCase(),
-                  style: GoogleFonts.rajdhani(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2,
-                    color: cs.onSurface.withValues(alpha: 0.85),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            focus,
-            style: GoogleFonts.rajdhani(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: cs.onSurface.withValues(alpha: 0.55),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (int i = 0; i < FitBattleGoalMapper.availableDurations.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 10),
-                  pill(
-                    FitBattleGoalMapper.availableDurations[i],
-                    FitBattleGoalMapper.durationLabel(FitBattleGoalMapper.availableDurations[i]),
-                    isSelected: selectedDuration == FitBattleGoalMapper.availableDurations[i],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildJoinRoomBlock(ColorScheme cs) {
     return CyberpunkCard(
